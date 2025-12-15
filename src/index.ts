@@ -1,4 +1,4 @@
-import { repos, GITHUB_TOKEN } from './config.js';
+import { getRepos, GITHUB_TOKEN } from './config.js';
 import { log } from './modules/logger/index.js';
 import {
   getPackageJson,
@@ -126,6 +126,7 @@ async function processRepo(
 }
 
 async function main(): Promise<void> {
+  const repos = getRepos();
   log.info(`Updating ${packageName} to ${newVersion} in ${repos.length} repo(s)...`);
 
   const results: Result[] = [];
