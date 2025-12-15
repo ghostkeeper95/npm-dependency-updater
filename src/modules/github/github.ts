@@ -1,9 +1,15 @@
 import { Octokit } from '@octokit/rest';
 import type { Endpoints } from '@octokit/types';
-import { GITHUB_TOKEN, BASE_BRANCH } from '../../config.js';
+import { GITHUB_TOKEN } from '../../config.js';
 import { log } from '../logger/index.js';
 import type { PackageJsonResult } from '../../types/index.js';
-import type { RepoParams, BranchParams, CommitFileParams, PullRequestParams } from './types.js';
+import type {
+  RepoParams,
+  BranchParams,
+  CommitFileParams,
+  PullRequestParams,
+  CheckBranchParams,
+} from './types.js';
 
 type PullRequest = Endpoints['POST /repos/{owner}/{repo}/pulls']['response']['data'];
 
@@ -11,12 +17,16 @@ const octokit = new Octokit({
   auth: GITHUB_TOKEN,
 });
 
-export async function getPackageJson({ owner, repo }: RepoParams): Promise<PackageJsonResult> {
+export async function getPackageJson({
+  owner,
+  repo,
+  baseBranch,
+}: RepoParams): Promise<PackageJsonResult> {
   const { data } = await octokit.repos.getContent({
     owner,
     repo,
     path: 'package.json',
-    ref: BASE_BRANCH,
+    ref: baseBranch,
   });
 
   if (!('content' in data)) {
@@ -27,11 +37,11 @@ export async function getPackageJson({ owner, repo }: RepoParams): Promise<Packa
   return { content: JSON.parse(content), sha: data.sha };
 }
 
-export async function getBaseBranchSha({ owner, repo }: RepoParams): Promise<string> {
+export async function getBaseBranchSha({ owner, repo, baseBranch }: RepoParams): Promise<string> {
   const { data } = await octokit.git.getRef({
     owner,
     repo,
-    ref: `heads/${BASE_BRANCH}`,
+    ref: `heads/${baseBranch}`,
   });
   return data.object.sha;
 }
@@ -56,11 +66,7 @@ export async function createBranch({ owner, repo, branchName, sha }: BranchParam
   });
 }
 
-async function checkBranchExists({
-  owner,
-  repo,
-  branchName,
-}: RepoParams & { branchName: string }): Promise<boolean> {
+async function checkBranchExists({ owner, repo, branchName }: CheckBranchParams): Promise<boolean> {
   try {
     await octokit.git.getRef({
       owner,
@@ -95,6 +101,7 @@ export async function commitFile({
 export async function createPullRequest({
   owner,
   repo,
+  baseBranch,
   branchName,
   packageName,
   newVersion,
@@ -104,7 +111,7 @@ export async function createPullRequest({
     repo,
     title: `Update ${packageName} to ${newVersion}`,
     head: branchName,
-    base: BASE_BRANCH,
+    base: baseBranch,
     body: `This PR updates \`${packageName}\` to version \`${newVersion}\`.
 
 Generated automatically by npm-dependency-updater.`,

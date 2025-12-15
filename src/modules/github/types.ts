@@ -1,6 +1,10 @@
-export interface RepoParams {
+export interface BaseRepoParams {
   owner: string;
   repo: string;
+}
+
+export interface RepoParams extends BaseRepoParams {
+  baseBranch: string;
 }
 
 export interface BranchParams extends RepoParams {
@@ -19,4 +23,8 @@ export interface PullRequestParams extends RepoParams {
   branchName: string;
   packageName: string;
   newVersion: string;
+}
+
+export interface CheckBranchParams extends BaseRepoParams {
+  branchName: string;
 }

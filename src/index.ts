@@ -1,4 +1,4 @@
-import { repos } from './config.js';
+import { repos, GITHUB_TOKEN } from './config.js';
 import { log } from './modules/logger/index.js';
 import {
   getPackageJson,
@@ -9,7 +9,14 @@ import {
 } from './modules/github/index.js';
 import { checkPackageVersionExists } from './modules/npm/index.js';
 import { updateDependencyVersion } from './modules/dependency/index.js';
-import type { Result } from './types/index.js';
+import type { RepoConfig, Result } from './types/index.js';
+
+// Validate GitHub token
+if (!GITHUB_TOKEN) {
+  log.error('GITHUB_TOKEN is not set. Please add it to your .env file.');
+  log.error('See .env.sample for reference.');
+  process.exit(1);
+}
 
 const [, , packageName, newVersion] = process.argv;
 
@@ -31,15 +38,20 @@ if (!versionExists) {
 log.success(`Found ${packageName}@${newVersion} on npm`);
 
 async function processRepo(
-  repoFullName: string,
+  repoConfig: RepoConfig,
   packageName: string,
   newVersion: string
 ): Promise<Result> {
-  const [owner, repo] = repoFullName.split('/');
-  log.header(`${owner}/${repo}`);
+  const [owner, repo] = repoConfig.repo.split('/');
+  const baseBranch = repoConfig.baseBranch;
+  log.header(`${owner}/${repo} (${baseBranch})`);
 
   log.step('Fetching package.json...');
-  const { content: packageJson, sha: fileSha } = await getPackageJson({ owner, repo });
+  const { content: packageJson, sha: fileSha } = await getPackageJson({
+    owner,
+    repo,
+    baseBranch,
+  });
 
   log.step(`Updating ${packageName} to ${newVersion}...`);
   const { found, updated, alreadyUpToDate } = updateDependencyVersion({
@@ -51,7 +63,7 @@ async function processRepo(
   if (!found) {
     log.warn(`${packageName} not found in dependencies`);
     return {
-      repo: repoFullName,
+      repo: repoConfig.repo,
       success: true,
       skipped: true,
       skipReason: 'not found in dependencies',
@@ -61,7 +73,7 @@ async function processRepo(
   if (alreadyUpToDate) {
     log.warn(`${packageName} is already at version ${newVersion}, skipping...`);
     return {
-      repo: repoFullName,
+      repo: repoConfig.repo,
       success: true,
       skipped: true,
       skipReason: 'already up to date',
@@ -71,7 +83,7 @@ async function processRepo(
   if (!updated) {
     log.warn(`${packageName} could not be updated`);
     return {
-      repo: repoFullName,
+      repo: repoConfig.repo,
       success: true,
       skipped: true,
       skipReason: 'could not be updated',
@@ -82,25 +94,33 @@ async function processRepo(
 
   const branchName = `deps/update-${packageName}-${newVersion}`;
   log.step(`Creating branch: ${branchName}`);
-  const baseSha = await getBaseBranchSha({ owner, repo });
-  await createBranch({ owner, repo, branchName, sha: baseSha });
+  const baseSha = await getBaseBranchSha({ owner, repo, baseBranch });
+  await createBranch({ owner, repo, baseBranch, branchName, sha: baseSha });
 
   log.step('Committing changes...');
   const commitMessage = `deps: update ${packageName} to ${newVersion}`;
   await commitFile({
     owner,
     repo,
+    baseBranch,
     branchName,
     fileSha,
     content: newContent,
     message: commitMessage,
   });
 
-  const pr = await createPullRequest({ owner, repo, branchName, packageName, newVersion });
+  const pr = await createPullRequest({
+    owner,
+    repo,
+    baseBranch,
+    branchName,
+    packageName,
+    newVersion,
+  });
   log.success(`Pull Request created: ${pr.html_url}`);
 
   return {
-    repo: repoFullName,
+    repo: repoConfig.repo,
     success: true,
   };
 }
@@ -110,15 +130,15 @@ async function main(): Promise<void> {
 
   const results: Result[] = [];
 
-  for (const repoFullName of repos) {
+  for (const repoConfig of repos) {
     try {
-      const result = await processRepo(repoFullName, packageName, newVersion);
+      const result = await processRepo(repoConfig, packageName, newVersion);
       results.push(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      log.error(`${repoFullName}: ${message}`);
+      log.error(`${repoConfig.repo}: ${message}`);
       results.push({
-        repo: repoFullName,
+        repo: repoConfig.repo,
         success: false,
         error: message,
       });

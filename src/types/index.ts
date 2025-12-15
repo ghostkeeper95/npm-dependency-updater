@@ -17,3 +17,8 @@ export interface Result {
   skipReason?: string;
   error?: string;
 }
+
+export interface RepoConfig {
+  repo: string;
+  baseBranch: string;
+}

@@ -1,3 +1,6 @@
 [
-  "ghostkeeper95/dep-test-repo"
+  {
+    "repo": "ghostkeeper95/dep-test-repo",
+    "baseBranch": "main"
+  }
 ]
