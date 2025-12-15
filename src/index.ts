@@ -1,34 +1,15 @@
 import { repos } from './config.js';
-import { log } from './lib/logger.js';
+import { log } from './modules/logger/index.js';
 import {
   getPackageJson,
   getBaseBranchSha,
   createBranch,
   commitFile,
   createPullRequest,
-} from './lib/github.js';
-import { checkPackageVersionExists } from './lib/npm.js';
-import type { PackageJson } from './types/index.js';
-
-interface Result {
-  repo: string;
-  success: boolean;
-  skipped?: boolean;
-  skipReason?: string;
-  error?: string;
-}
-
-interface UpdateDependencyParams {
-  packageJson: PackageJson;
-  packageName: string;
-  newVersion: string;
-}
-
-interface UpdateResult {
-  found: boolean;
-  updated: boolean;
-  alreadyUpToDate: boolean;
-}
+} from './modules/github/index.js';
+import { checkPackageVersionExists } from './modules/npm/index.js';
+import { updateDependencyVersion } from './modules/dependency/index.js';
+import type { Result } from './types/index.js';
 
 const [, , packageName, newVersion] = process.argv;
 
@@ -48,37 +29,6 @@ if (!versionExists) {
 }
 
 log.success(`Found ${packageName}@${newVersion} on npm`);
-
-function updateDependencyVersion({
-  packageJson,
-  packageName,
-  newVersion,
-}: UpdateDependencyParams): UpdateResult {
-  let found = false;
-  let updated = false;
-  let alreadyUpToDate = false;
-
-  const depTypes = ['dependencies', 'devDependencies', 'peerDependencies'] as const;
-
-  for (const depType of depTypes) {
-    const currentVersion = packageJson[depType]?.[packageName];
-    if (currentVersion) {
-      found = true;
-      if (currentVersion === newVersion) {
-        alreadyUpToDate = true;
-        continue;
-      }
-      packageJson[depType]![packageName] = newVersion;
-      updated = true;
-    }
-  }
-
-  return {
-    found,
-    updated,
-    alreadyUpToDate: found && !updated && alreadyUpToDate,
-  };
-}
 
 async function processRepo(
   repoFullName: string,

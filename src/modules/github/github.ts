@@ -1,18 +1,15 @@
 import { Octokit } from '@octokit/rest';
 import type { Endpoints } from '@octokit/types';
-import { GITHUB_TOKEN, BASE_BRANCH } from '../config.js';
-import { log } from './logger.js';
-import type { PackageJsonResult } from '../types/index.js';
-import type {
-  RepoParams,
-  BranchParams,
-  CommitFileParams,
-  PullRequestParams,
-} from '../types/github.js';
+import { GITHUB_TOKEN, BASE_BRANCH } from '../../config.js';
+import { log } from '../logger/index.js';
+import type { PackageJsonResult } from '../../types/index.js';
+import type { RepoParams, BranchParams, CommitFileParams, PullRequestParams } from './types.js';
 
 type PullRequest = Endpoints['POST /repos/{owner}/{repo}/pulls']['response']['data'];
 
-const octokit = new Octokit({ auth: GITHUB_TOKEN });
+const octokit = new Octokit({
+  auth: GITHUB_TOKEN,
+});
 
 export async function getPackageJson({ owner, repo }: RepoParams): Promise<PackageJsonResult> {
   const { data } = await octokit.repos.getContent({
