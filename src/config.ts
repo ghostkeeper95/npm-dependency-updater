@@ -11,16 +11,18 @@ export const DEFAULT_BASE_BRANCH = 'main';
 
 const REPOS_CONFIG_PATH = path.join(__dirname, '..', 'repos.json');
 
-function loadRepos(): RepoConfig[] {
+let _reposCache: RepoConfig[] | null = null;
+
+export function loadRepos(configPath: string = REPOS_CONFIG_PATH): RepoConfig[] {
   // Check if file exists
-  if (!fs.existsSync(REPOS_CONFIG_PATH)) {
-    throw new Error(`repos.json not found at ${REPOS_CONFIG_PATH}`);
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`repos.json not found at ${configPath}`);
   }
 
   // Read and parse JSON
   let rawData: unknown;
   try {
-    const fileContent = fs.readFileSync(REPOS_CONFIG_PATH, 'utf-8');
+    const fileContent = fs.readFileSync(configPath, 'utf-8');
     rawData = JSON.parse(fileContent);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -71,4 +73,13 @@ function loadRepos(): RepoConfig[] {
   return result;
 }
 
-export const repos: RepoConfig[] = loadRepos();
+export function getRepos(): RepoConfig[] {
+  if (!_reposCache) {
+    _reposCache = loadRepos();
+  }
+  return _reposCache;
+}
+
+export function clearReposCache(): void {
+  _reposCache = null;
+}
